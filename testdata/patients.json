@@ -1,0 +1,44 @@
+[
+  {
+    "firstName": "John",
+    "lastName": "Doe",
+    "dateOfBirth": "1980-05-12",
+    "gender": "M",
+    "ssnLast4": "1234",
+    "address": {
+      "line1": "123 Main St",
+      "city": "Austin",
+      "state": "TX",
+      "zip": "78701"
+    },
+    "phone": "+15125550101",
+    "email": "john.doe@example.com"
+  },
+  {
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "dateOfBirth": "1975-11-30",
+    "gender": "F",
+    "ssnLast4": "5678",
+    "address": {
+      "line1": "456 Oak Ave",
+      "city": "Dallas",
+      "state": "TX",
+      "zip": "75201"
+    },
+    "phone": "+12145550102",
+    "email": "jane.smith@example.com"
+  },
+  {
+    "firstName": "Alex",
+    "lastName": "Nguyen",
+    "dateOfBirth": "1992-03-08",
+    "gender": "O",
+    "address": {
+      "line1": "789 Pine Rd",
+      "city": "Houston",
+      "state": "TX",
+      "zip": "77002"
+    }
+  }
+]

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EligibilityLogEntry",
+  "type": "object",
+  "required": ["id", "patient_id", "payer_id", "request_type"],
+  "properties": {
+    "id":              { "type": "string", "minLength": 1 },
+    "patient_id":      { "type": "string" },
+    "payer_id":        { "type": "string" },
+    "request_type":    { "type": "string" },
+    "transaction_id":  { "type": ["string", "null"] },
+    "coverage_active": { "type": ["boolean", "null"] },
+    "raw_request":     { "type": ["string", "object", "null"] },
+    "raw_response":    { "type": ["string", "object", "null"] },
+    "checked_at":      { "type": ["string", "null"], "format": "date-time" },
+    "created_at":      { "type": ["string", "null"], "format": "date-time" }
+  }
+}

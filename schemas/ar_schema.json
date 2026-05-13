@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ARAging",
+  "type": "object",
+  "required": ["as_of", "total_ar"],
+  "properties": {
+    "as_of":   { "type": "string", "format": "date" },
+    "total_ar": { "type": ["string", "number"] },
+    "payers":  { "type": "array" },
+    "buckets": { "type": "array" }
+  }
+}

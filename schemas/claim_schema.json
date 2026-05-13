@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Claim",
+  "type": "object",
+  "required": ["id", "patient_id", "claim_type", "status"],
+  "properties": {
+    "id":              { "type": "string", "minLength": 1 },
+    "claim_number":    { "type": ["string", "null"] },
+    "patient_id":      { "type": "string" },
+    "order_id":        { "type": ["string", "null"] },
+    "payer_id":        { "type": ["string", "null"] },
+    "claim_type":      { "type": "string" },
+    "status":          { "type": "string" },
+    "service_date_from": { "type": ["string", "null"] },
+    "service_date_to":   { "type": ["string", "null"] },
+    "total_charge":      { "type": ["string", "number", "null"] },
+    "total_paid":        { "type": ["string", "number", "null"] },
+    "patient_responsibility": { "type": ["string", "number", "null"] },
+    "billing_provider_npi":   { "type": ["string", "null"] },
+    "rendering_provider_npi": { "type": ["string", "null"] },
+    "created_at": { "type": ["string", "null"], "format": "date-time" },
+    "updated_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

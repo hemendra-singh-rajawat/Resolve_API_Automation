@@ -1,0 +1,26 @@
+[
+  {
+    "scenario": "full_payment_eft",
+    "payload": {
+      "claimId": "${CLAIM_ID}",
+      "amount": 1200.00,
+      "paymentDate": "2026-05-10",
+      "method": "EFT",
+      "payerId": "PAYER001"
+    }
+  },
+  {
+    "scenario": "partial_payment_with_adjustments",
+    "payload": {
+      "claimId": "${CLAIM_ID}",
+      "amount": 950.00,
+      "paymentDate": "2026-05-10",
+      "method": "ERA",
+      "payerId": "PAYER001",
+      "adjustments": [
+        { "groupCode": "CO", "reasonCode": "45", "amount": 200.00 },
+        { "groupCode": "PR", "reasonCode": "1",  "amount": 50.00 }
+      ]
+    }
+  }
+]

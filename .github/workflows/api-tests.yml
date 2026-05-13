@@ -1,0 +1,127 @@
+name: API Tests (RCM)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment"
+        type: choice
+        default: qa
+        options: [dev, qa, stage]
+      suite:
+        description: "Suite to run (smoke | regression | all)"
+        type: choice
+        default: smoke
+        options: [smoke, regression, all]
+  schedule:
+    - cron: "0 5 * * 1-5"   # 05:00 UTC weekdays — nightly regression
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [qa]
+    env:
+      ENV: ${{ github.event.inputs.env || matrix.env }}
+      LOG_LEVEL: INFO
+      RCM_USERNAME: ${{ secrets.RCM_USERNAME }}
+      RCM_PASSWORD: ${{ secrets.RCM_PASSWORD }}
+      RCM_CLIENT_ID: ${{ secrets.RCM_CLIENT_ID }}
+      RCM_CLIENT_SECRET: ${{ secrets.RCM_CLIENT_SECRET }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_DIALECT: ${{ secrets.DB_DIALECT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright browsers (not strictly needed for API but small)
+        run: python -m playwright install --with-deps chromium
+
+      - name: Choose marker
+        id: marker
+        run: |
+          case "${{ github.event.inputs.suite || 'smoke' }}" in
+            smoke)      echo "expr=smoke" >> "$GITHUB_OUTPUT" ;;
+            regression) echo "expr=regression" >> "$GITHUB_OUTPUT" ;;
+            all)        echo "expr=smoke or regression" >> "$GITHUB_OUTPUT" ;;
+            *)          echo "expr=smoke" >> "$GITHUB_OUTPUT" ;;
+          esac
+
+      - name: Run tests
+        run: |
+          pytest -n auto -m "${{ steps.marker.outputs.expr }}" \
+            --env "$ENV" \
+            --alluredir=reports/allure-results
+        continue-on-error: true
+
+      - name: Upload Allure raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.env }}
+          path: reports/allure-results
+          retention-days: 14
+
+      - name: Upload run logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.env }}
+          path: logs/
+          retention-days: 7
+
+  publish-report:
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: allure-input
+          merge-multiple: true
+
+      - name: Generate Allure HTML report
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: allure-input
+          allure_report: allure-report
+          gh_pages: gh-pages
+          allure_history: allure-history
+          keep_reports: 30
+
+      - name: Publish to gh-pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dashboard",
+  "type": "object",
+  "required": ["total_ar", "denial_rate", "clean_claim_rate"],
+  "properties": {
+    "total_ar":          { "type": ["string", "number"] },
+    "denial_rate":       { "type": ["string", "number"] },
+    "clean_claim_rate":  { "type": ["string", "number"] },
+    "avg_days_in_ar":    { "type": ["string", "number"] },
+    "submitted_mtd":     { "type": ["integer", "number"] },
+    "paid_mtd":          { "type": ["string", "number"] },
+    "denied_mtd":        { "type": ["integer", "number"] }
+  }
+}

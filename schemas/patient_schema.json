@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PatientShim",
+  "description": "billing-rcm-service does not expose patient demographics. PatientService is repurposed against /api/v1/payers so this schema mirrors the payer response.",
+  "type": "object",
+  "required": ["id", "name", "is_active"],
+  "properties": {
+    "id":                  { "type": "string", "minLength": 1 },
+    "name":                { "type": "string", "minLength": 1 },
+    "electronic_payer_id": { "type": ["string", "null"] },
+    "is_active":           { "type": "boolean" },
+    "created_at":          { "type": ["string", "null"], "format": "date-time" },
+    "updated_at":          { "type": ["string", "null"], "format": "date-time" }
+  }
+}

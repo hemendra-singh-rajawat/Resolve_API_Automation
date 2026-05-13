@@ -1,0 +1,32 @@
+[
+  {
+    "scenario": "active_commercial",
+    "request": {
+      "patient": { "firstName": "John", "lastName": "Doe", "dateOfBirth": "1980-05-12" },
+      "payerId": "PAYER001",
+      "memberId": "BCBS123456789",
+      "serviceType": "30"
+    },
+    "expectedActive": true
+  },
+  {
+    "scenario": "terminated_member",
+    "request": {
+      "patient": { "firstName": "Jane", "lastName": "Smith", "dateOfBirth": "1975-11-30" },
+      "payerId": "PAYER003",
+      "memberId": "OLD000000",
+      "serviceType": "30"
+    },
+    "expectedActive": false
+  },
+  {
+    "scenario": "dme_coverage",
+    "request": {
+      "patient": { "firstName": "Alex", "lastName": "Nguyen", "dateOfBirth": "1992-03-08" },
+      "payerId": "PAYER002",
+      "memberId": "MED999000111",
+      "serviceType": "12"
+    },
+    "expectedActive": true
+  }
+]
