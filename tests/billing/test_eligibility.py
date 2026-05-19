@@ -41,36 +41,30 @@ BATCH_DUMMY_PATIENTS: list[dict] = [
 
 
 # --- Dummy-patient verification scenarios ------------------------------------
-# Both rows below send a well-formed 270 inquiry for a fabricated patient. They
-# exercise the request → ClearinghouseAdapter → 271-parsing pipeline. We do NOT
-# rely on the test running against any pre-seeded patient row in the DB.
+# Sends a well-formed 270 inquiry for a fabricated patient and exercises the
+# request → ClearinghouseAdapter → 271-parsing pipeline. We do NOT rely on the
+# test running against any pre-seeded patient row in the DB.
+#
+# NOTE: there used to be a second "jane-doe-ineligible" case here that used a
+# bad NPI (1234567890) to provoke an ineligible result. PR #83 added a CMS
+# Luhn validator to provider_npi, so that NPI is now rejected with 422 at the
+# API boundary before it ever reaches Claim.MD. That scenario is now covered
+# precisely by test_pr83_npi_luhn_rejected below, so the redundant happy-path
+# variant was removed rather than papered over.
 
 DUMMY_PATIENT_CASES: list[dict] = [
-    {
-        "id": "jane-doe-ineligible",
-        "label": "Jane Doe — fabricated patient with bad NPI, expect ineligible",
-        "electronic_payer_id": "52192",  # BlueCross NY (seeded)
-        "payload_overrides": {
-            "patient_id": "00000000-1111-7000-8000-000000000001",
-            "policy_number": "DUMMY-POLICY-001",
-            "first_name": "Jane",
-            "last_name": "Doe",
-            "date_of_birth": "1985-04-12",
-            "provider_npi": "1234567890",
-            "provider_tax_id": "123456789",
-            "service_date": "2026-05-13",
-        },
-        "expected_eligible": False,
-        "expected_coverage_active": False,
-        "expected_issue_codes_any": {"CH_ERROR_430B", "COVERAGE_INACTIVE"},
-    },
     {
         "id": "tom-holland-eligible",
         "label": "Tom Holland — fabricated patient matching a sandbox policy, expect eligible",
         "electronic_payer_id": "52192",  # BlueCross NY — sandbox returns active coverage for this demo combo
         "payload_overrides": {
             "patient_id": "0193c1f4-5a8e-7b3c-9d2f-1a4b8c6d7e9f",
-            "policy_number": "",
+            # NOTE: policy_number was previously "" (the clearinghouse accepts demographic-only
+            # lookups), but PR #83 added `min_length=1` to EligibilityVerifyRequest.policy_number.
+            # An empty string now fails Pydantic validation with 422 before the call leaves the
+            # service. Any non-empty value is accepted; the sandbox still resolves coverage from
+            # demographics + payer.
+            "policy_number": "POLICY-TOM-001",
             "first_name": "Tom",
             "last_name": "Holland",
             "date_of_birth": "1975-08-21",
@@ -262,3 +256,92 @@ def test_batch_eligibility_10_dummy_patients(eligibility, payers):
         name="row-level summary",
         attachment_type=allure.attachment_type.TEXT,
     )
+
+
+# --- PR #83: input-validation guardrails -------------------------------------
+# These tests exist to prove the new field-level validators in
+# EligibilityVerifyRequest reject bad input at the API boundary.
+# Reference: billing-rcm-service PR #83 (feat/eligibility-api-validation).
+# If they fail with "expected 422, got 200", the running uvicorn has not yet
+# picked up the new code — restart it and re-run.
+
+def _valid_verify_payload(payer_id: str, electronic_payer_id: str) -> dict:
+    """A baseline payload that passes every new validator. Each negative test
+    mutates one field to assert the validator catches it."""
+    return {
+        "patient_id": "00000000-1111-7000-8000-000000000099",
+        "payer_id": payer_id,
+        "electronic_payer_id": electronic_payer_id,
+        "policy_number": "BASELINE-001",
+        "first_name": "Base",
+        "last_name": "Line",
+        "date_of_birth": "1980-01-01",
+        "provider_npi": "1111111112",   # Luhn-valid
+        "provider_tax_id": "999999999", # 9 digits
+        "service_date": "2026-05-15",   # within window
+        "service_type_code": "30",
+        "patient_relationship": "18",
+        "checked_by": "316c469571cb4a9d8a8d82ae1272340c",
+    }
+
+
+@allure.story("PR #83 — empty policy_number is rejected with 422")
+@pytest.mark.negative
+def test_pr83_empty_policy_number_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["policy_number"] = ""
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — provider_npi failing Luhn checksum is rejected with 422")
+@pytest.mark.negative
+def test_pr83_npi_luhn_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["provider_npi"] = "1234567890"  # 10 digits but fails Luhn (with 80840 prefix)
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — provider_tax_id not 9 digits is rejected with 422")
+@pytest.mark.negative
+def test_pr83_tax_id_format_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["provider_tax_id"] = "12345"  # too short
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — patient_relationship outside {18, G8} is rejected with 422")
+@pytest.mark.negative
+def test_pr83_patient_relationship_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["patient_relationship"] = "01"  # not in the allowed set
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — service_date too far in the future is rejected with 422")
+@pytest.mark.negative
+def test_pr83_service_date_too_future_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["service_date"] = "2030-01-01"  # > today + 90 days
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — service_date too far in the past is rejected with 422")
+@pytest.mark.negative
+def test_pr83_service_date_too_past_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    body = _valid_verify_payload(payer["id"], "52192")
+    body["service_date"] = "2020-01-01"  # > today - 365 days
+    eligibility.check(body).assert_status(422)
+
+
+@allure.story("PR #83 — batch with duplicate (patient_id, payer_id, service_date) rejected 422")
+@pytest.mark.negative
+def test_pr83_batch_duplicate_rejected(eligibility, payers):
+    payer = next(p for p in payers.list().json()["items"] if p.get("electronic_payer_id") == "52192")
+    one = _valid_verify_payload(payer["id"], "52192")
+    eligibility.batch([one, dict(one)]).assert_status(422)
