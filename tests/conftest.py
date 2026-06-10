@@ -18,14 +18,19 @@ from framework.auth import TokenStore  # noqa: E402
 from framework.config import EnvConfig, get_env, get_secrets  # noqa: E402
 from framework.logger import configure_logging, get_logger  # noqa: E402
 from services.ar_service import ARService  # noqa: E402
-from services.authorization_service import AuthorizationService  # noqa: E402
 from services.claim_service import ClaimService  # noqa: E402
+from services.codes_service import CodesService  # noqa: E402
 from services.denial_service import DenialService  # noqa: E402
 from services.eligibility_service import EligibilityService  # noqa: E402
 from services.patient_service import PatientService  # noqa: E402
 from services.payer_service import PayerService  # noqa: E402
 from services.payment_service import PaymentService  # noqa: E402
 from services.remittance_service import RemittanceService  # noqa: E402
+from services.statements_service import StatementsService  # noqa: E402
+
+# NOTE: AuthorizationService removed — the billing-rcm-service "prior_authorization"
+# feature was dropped on origin/main (commit 40ac307). Endpoints under
+# /api/v1/prior-authorizations no longer exist.
 
 log = get_logger(__name__)
 
@@ -121,8 +126,13 @@ def remittances(api: APIClient) -> RemittanceService:
 
 
 @pytest.fixture(scope="session")
-def authorizations(api: APIClient) -> AuthorizationService:
-    return AuthorizationService(api)
+def codes(api: APIClient) -> CodesService:
+    return CodesService(api)
+
+
+@pytest.fixture(scope="session")
+def statements(api: APIClient) -> StatementsService:
+    return StatementsService(api)
 
 
 @pytest.fixture(scope="session")
